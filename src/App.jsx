@@ -6,8 +6,6 @@ export default function App() {
 
   return (
     <div>
-      <h1>레이아웃</h1>
-      
       <Outlet />
     </div>
   )
