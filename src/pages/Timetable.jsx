@@ -45,7 +45,7 @@ export default function Timetable() {
   }
 
   return (
-    <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
+    <div className="bg-white overflow-hidden -mx-4">
       {/* 헤더 */}
       <div className="px-4 pt-4 pb-3">
         <p className="text-xs text-gray-400">2024년 1학기</p>
