@@ -101,7 +101,7 @@ export default function Timetable() {
           <div key={day} className="flex-1 min-w-0 border-l border-gray-200">
             <div
               style={{ height: 28 }}
-              className="flex items-center justify-center text-xs font-medium text-gray-600 border-b border-gray-200"
+              className="flex items-center justify-center text-xs font-medium text-gray-600"
             >
               {day}
             </div>
