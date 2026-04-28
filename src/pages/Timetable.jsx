@@ -81,7 +81,7 @@ export default function Timetable() {
       <div className="px-4 pt-4 pb-3 flex items-end justify-between">
         <div>
           <p className="text-xs text-gray-400">2024년 1학기</p>
-          <h1 className="text-xl font-bold">시간표 1</h1>
+          <h1 className="text-xl font-bold">시간표</h1>
         </div>
         {homeroomClass && (
           <div className="flex gap-2 pb-0.5">
