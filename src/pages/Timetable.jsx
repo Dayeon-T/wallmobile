@@ -2,15 +2,13 @@ import { useState, useEffect } from "react"
 import { supabase } from "../utils/supabase"
 
 const DAYS = ["월", "화", "수", "목", "금"]
-const START_HOUR = 9
-const END_HOUR = 18
+const START_PERIOD = 1
+const END_PERIOD = 9
 const HOUR_HEIGHT = 64
 const TIME_COL_WIDTH = 24
 
-const DEFAULT_COLORS = [
-  "#AED6F1", "#A9DFBF", "#F9E79F", "#F1948A", "#C39BD3",
-  "#FAD7A0", "#A3E4D7", "#D2B4DE", "#ABEBC6", "#F8C471",
-]
+// 교시 → 시간 표시 (1교시=9시)
+const periodToHour = (p) => p + 8
 
 export default function Timetable() {
   const [courses, setCourses] = useState([])
@@ -18,21 +16,25 @@ export default function Timetable() {
 
   useEffect(() => {
     async function fetchTimetable() {
-      const { data, error } = await supabase.from("timetable").select("*")
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return setLoading(false)
+
+      const { data, error } = await supabase
+        .from("timetable")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("is_class", false)
+        .order("day")
+        .order("start_period")
+
       if (!error && data) setCourses(data)
       setLoading(false)
     }
     fetchTimetable()
   }, [])
 
-  const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i)
-  const totalHeight = (END_HOUR - START_HOUR) * HOUR_HEIGHT
-
-  function getCourseStyle(course) {
-    const top = (course.start_time - START_HOUR) * HOUR_HEIGHT
-    const height = (course.end_time - course.start_time) * HOUR_HEIGHT
-    return { top, height }
-  }
+  const periods = Array.from({ length: END_PERIOD - START_PERIOD + 1 }, (_, i) => START_PERIOD + i)
+  const totalHeight = periods.length * HOUR_HEIGHT
 
   if (loading) {
     return (
@@ -50,67 +52,56 @@ export default function Timetable() {
         <h1 className="text-xl font-bold">시간표 1</h1>
       </div>
 
-      {/* 시간표 그리드 */}
+      {/* 그리드 */}
       <div className="flex">
-        {/* 시간 컬럼 */}
+        {/* 교시/시간 컬럼 */}
         <div style={{ width: TIME_COL_WIDTH, minWidth: TIME_COL_WIDTH }}>
-          {/* 요일 헤더 높이만큼 여백 */}
           <div style={{ height: 28 }} />
-          {hours.map(h => (
+          {periods.map(p => (
             <div
-              key={h}
+              key={p}
               style={{ height: HOUR_HEIGHT }}
               className="flex items-start justify-center pt-0.5"
             >
-              <span className="text-[10px] text-gray-400">{h}</span>
+              <span className="text-[10px] text-gray-400">{periodToHour(p)}</span>
             </div>
           ))}
         </div>
 
-        {/* 요일 컬럼들 */}
+        {/* 요일 컬럼 */}
         {DAYS.map((day, dayIdx) => (
           <div key={day} className="flex-1 min-w-0 border-l border-gray-100">
-            {/* 요일 헤더 */}
-            <div
-              style={{ height: 28 }}
-              className="flex items-center justify-center text-xs font-medium text-gray-500"
-            >
+            <div style={{ height: 28 }} className="flex items-center justify-center text-xs font-medium text-gray-500">
               {day}
             </div>
 
-            {/* 수업 영역 */}
             <div className="relative" style={{ height: totalHeight }}>
-              {/* 시간선 */}
-              {hours.map(h => (
+              {/* 시간 구분선 */}
+              {periods.map(p => (
                 <div
-                  key={h}
+                  key={p}
                   className="absolute left-0 right-0 border-t border-gray-100"
-                  style={{ top: (h - START_HOUR) * HOUR_HEIGHT }}
+                  style={{ top: (p - START_PERIOD) * HOUR_HEIGHT }}
                 />
               ))}
 
               {/* 수업 블록 */}
               {courses
                 .filter(c => c.day === dayIdx + 1)
-                .map((course, i) => {
-                  const { top, height } = getCourseStyle(course)
-                  const bg = course.color || DEFAULT_COLORS[course.id % DEFAULT_COLORS.length]
+                .map(course => {
+                  const top = (course.start_period - START_PERIOD) * HOUR_HEIGHT
+                  const height = (course.end_period - course.start_period + 1) * HOUR_HEIGHT
                   return (
                     <div
                       key={course.id}
                       className="absolute rounded-md px-1 py-1 overflow-hidden"
-                      style={{ top, height, left: 1, right: 1, backgroundColor: bg }}
+                      style={{ top, height, left: 1, right: 1, backgroundColor: course.color || "#AED6F1" }}
                     >
                       <p className="text-[10px] font-bold leading-tight text-gray-800 line-clamp-2">
-                        {course.subject_name}
+                        {course.subject}
                       </p>
-                      {height >= 44 && (
+                      {height >= 60 && course.room && (
                         <p className="text-[9px] text-gray-600 leading-tight mt-0.5 truncate">
-                          {course.professor}
-                        </p>
-                      )}
-                      {height >= 60 && (
-                        <p className="text-[9px] text-gray-600 leading-tight truncate">
                           {course.room}
                         </p>
                       )}
