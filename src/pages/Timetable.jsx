@@ -94,8 +94,8 @@ export default function Timetable() {
                   return (
                     <div
                       key={course.id}
-                      className="absolute rounded-md px-1 py-1 overflow-hidden"
-                      style={{ top, height, left: 1, right: 1, backgroundColor: course.color || "#AED6F1" }}
+                      className="absolute px-1 py-1 overflow-hidden"
+                      style={{ top, height, left: 0, right: 0, backgroundColor: course.color || "#AED6F1" }}
                     >
                       <p className="text-[10px] font-bold leading-tight text-gray-800 line-clamp-2">
                         {course.subject}
