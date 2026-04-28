@@ -33,7 +33,7 @@ export default function BottomNavBar() {
         }}
       />
 
-      <div className="flex p-4">
+      <div className="flex">
         {navItems.map(({ to, icon, label }) => (
           <NavLink
             key={to}
