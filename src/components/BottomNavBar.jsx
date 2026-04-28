@@ -40,7 +40,7 @@ export default function BottomNavBar() {
             to={to}
             end={to === "/"}
             className={({ isActive }) =>
-              `flex flex-col flex-1 items-center justify-center pt-3 pb-3 text-xs gap-1 transition-colors duration-200 ${
+              `flex flex-col flex-1 items-center justify-center pt-3 pb-3 px-4 text-xs gap-1 transition-colors duration-200 ${
                 isActive ? "text-black font-bold" : "text-gray-400 font-normal"
               }`
             }
