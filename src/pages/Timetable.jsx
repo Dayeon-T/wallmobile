@@ -19,8 +19,10 @@ const DEFAULT_PERIODS = [
 ]
 
 export default function Timetable() {
+  const [tab, setTab] = useState("personal")
   const [courses, setCourses] = useState([])
   const [periods, setPeriods] = useState(DEFAULT_PERIODS)
+  const [homeroomClass, setHomeroomClass] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -29,25 +31,28 @@ export default function Timetable() {
       if (!user) return setLoading(false)
 
       const [ttRes, profileRes] = await Promise.all([
-        supabase.from("timetable").select("*").eq("user_id", user.id).eq("is_class", false),
-        supabase.from("profiles").select("period_schedule").eq("id", user.id).single(),
+        supabase.from("timetable").select("*").eq("user_id", user.id).eq("is_class", tab === "class"),
+        supabase.from("profiles").select("period_schedule, homeroom_class").eq("id", user.id).single(),
       ])
 
       if (ttRes.data) setCourses(ttRes.data)
 
-      const saved = profileRes.data?.period_schedule
-      if (Array.isArray(saved) && saved.length > 0) {
-        setPeriods(DEFAULT_PERIODS.map((def, i) => ({
-          label: saved[i]?.label ?? def.label,
-          start: saved[i]?.start ?? def.start,
-          enabled: saved[i]?.enabled ?? def.enabled,
-        })))
+      if (profileRes.data) {
+        setHomeroomClass(profileRes.data.homeroom_class || null)
+        const saved = profileRes.data.period_schedule
+        if (Array.isArray(saved) && saved.length > 0) {
+          setPeriods(DEFAULT_PERIODS.map((def, i) => ({
+            label: saved[i]?.label ?? def.label,
+            start: saved[i]?.start ?? def.start,
+            enabled: saved[i]?.enabled ?? def.enabled,
+          })))
+        }
       }
 
       setLoading(false)
     }
     fetchData()
-  }, [])
+  }, [tab])
 
   const usedIndices = new Set(courses.flatMap(c => {
     const arr = []
@@ -73,9 +78,28 @@ export default function Timetable() {
 
   return (
     <div className="bg-white -mx-4">
-      <div className="px-4 pt-4 pb-3">
-        <p className="text-xs text-gray-400">2024년 1학기</p>
-        <h1 className="text-xl font-bold">시간표 1</h1>
+      <div className="px-4 pt-4 pb-3 flex items-end justify-between">
+        <div>
+          <p className="text-xs text-gray-400">2024년 1학기</p>
+          <h1 className="text-xl font-bold">시간표 1</h1>
+        </div>
+        {homeroomClass && (
+          <div className="flex gap-2 pb-0.5">
+            <button
+              onClick={() => setTab("personal")}
+              className={`text-sm font-semibold transition-colors ${tab === "personal" ? "text-black" : "text-gray-300"}`}
+            >
+              내 시간표
+            </button>
+            <button
+              onClick={() => setTab("class")}
+              className={`text-sm font-semibold transition-colors ${tab === "class" ? "text-black" : "text-gray-300"}`}
+            >
+              학급 시간표
+              <span className="ml-1 text-xs font-medium opacity-60">{homeroomClass}</span>
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="flex">
