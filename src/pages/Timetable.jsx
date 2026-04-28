@@ -2,46 +2,107 @@ import { useState, useEffect } from "react"
 import { supabase } from "../utils/supabase"
 
 const DAYS = ["월", "화", "수", "목", "금"]
-const START_PERIOD = 1
-const END_PERIOD = 14
-const HOUR_HEIGHT = 64
-const TIME_COL_WIDTH = 24
+const TIME_COL_WIDTH = 44
+const PX_PER_MIN = 1.1
 
-// 교시 → 시간 표시 (1교시=9시)
-const periodToHour = (p) => p + 8
+const DEFAULT_PERIOD_SCHEDULE = [
+  null,
+  { label: "1교시", start: "08:20", end: "09:10", enabled: true },
+  { label: "2교시", start: "09:20", end: "10:10", enabled: true },
+  { label: "3교시", start: "10:20", end: "11:10", enabled: true },
+  { label: "4교시", start: "11:20", end: "12:10", enabled: true },
+  { label: "점심시간", start: "12:10", end: "13:00", enabled: true },
+  { label: "5교시", start: "13:00", end: "13:50", enabled: true },
+  { label: "6교시", start: "14:00", end: "14:50", enabled: true },
+  { label: "7교시", start: "15:00", end: "15:50", enabled: true },
+  { label: "방과후 A", start: "16:30", end: "17:20", enabled: false },
+  { label: "방과후 B", start: "18:20", end: "20:00", enabled: false },
+]
+
+function timeToMin(str) {
+  const [h, m] = str.split(":").map(Number)
+  return h * 60 + m
+}
 
 export default function Timetable() {
   const [courses, setCourses] = useState([])
+  const [schedule, setSchedule] = useState(DEFAULT_PERIOD_SCHEDULE)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function fetchTimetable() {
+    async function fetchData() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return setLoading(false)
 
-      const { data, error } = await supabase
-        .from("timetable")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("is_class", false)
-        .order("day")
-        .order("start_period")
+      const [ttRes, profileRes] = await Promise.all([
+        supabase
+          .from("timetable")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("is_class", false)
+          .order("day")
+          .order("start_period"),
+        supabase
+          .from("profiles")
+          .select("period_schedule")
+          .eq("id", user.id)
+          .single(),
+      ])
 
-      if (!error && data) setCourses(data)
+      if (ttRes.data) setCourses(ttRes.data)
+
+      const saved = profileRes.data?.period_schedule
+      if (Array.isArray(saved) && saved.length > 0) {
+        const merged = DEFAULT_PERIOD_SCHEDULE.slice(1).map((def, i) => ({
+          label: saved[i]?.label ?? def.label,
+          start: saved[i]?.start ?? def.start,
+          end: saved[i]?.end ?? def.end,
+          enabled: saved[i]?.enabled ?? def.enabled,
+        }))
+        setSchedule([null, ...merged])
+      }
+
       setLoading(false)
     }
-    fetchTimetable()
+    fetchData()
   }, [])
 
-  const periods = Array.from({ length: END_PERIOD - START_PERIOD + 1 }, (_, i) => START_PERIOD + i)
-  const totalHeight = periods.length * HOUR_HEIGHT
+  // 실제 수업이 있는 교시 인덱스 수집
+  const usedPeriodIndices = new Set(
+    courses.flatMap(c => {
+      const indices = []
+      for (let i = c.start_period; i <= c.end_period; i++) indices.push(i)
+      return indices
+    })
+  )
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
-        불러오는 중...
-      </div>
-    )
+  // 표시할 교시: enabled이거나 수업이 있는 것
+  const visiblePeriods = schedule.slice(1).map((p, i) => ({ ...p, index: i + 1 }))
+    .filter(p => p.enabled || usedPeriodIndices.has(p.index))
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
+      불러오는 중...
+    </div>
+  )
+
+  if (visiblePeriods.length === 0) return (
+    <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
+      시간표가 없습니다.
+    </div>
+  )
+
+  const dayStartMin = timeToMin(visiblePeriods[0].start)
+  const dayEndMin = timeToMin(visiblePeriods[visiblePeriods.length - 1].end)
+  const totalHeight = (dayEndMin - dayStartMin) * PX_PER_MIN
+
+  function getBlockStyle(course) {
+    const sp = schedule[course.start_period]
+    const ep = schedule[course.end_period]
+    if (!sp || !ep) return null
+    const top = (timeToMin(sp.start) - dayStartMin) * PX_PER_MIN
+    const height = (timeToMin(ep.end) - timeToMin(sp.start)) * PX_PER_MIN
+    return { top, height }
   }
 
   return (
@@ -52,36 +113,43 @@ export default function Timetable() {
         <h1 className="text-xl font-bold">시간표 1</h1>
       </div>
 
-      {/* 그리드 */}
       <div className="flex">
-        {/* 교시/시간 컬럼 */}
+        {/* 교시 레이블 컬럼 */}
         <div style={{ width: TIME_COL_WIDTH, minWidth: TIME_COL_WIDTH }}>
           <div style={{ height: 28 }} />
-          {periods.map(p => (
-            <div
-              key={p}
-              style={{ height: HOUR_HEIGHT }}
-              className="flex items-start justify-center pt-0.5"
-            >
-              <span className="text-[10px] text-gray-400">{periodToHour(p)}</span>
-            </div>
-          ))}
+          <div className="relative" style={{ height: totalHeight }}>
+            {visiblePeriods.map(period => {
+              const top = (timeToMin(period.start) - dayStartMin) * PX_PER_MIN
+              const height = (timeToMin(period.end) - timeToMin(period.start)) * PX_PER_MIN
+              return (
+                <div
+                  key={period.index}
+                  className="absolute left-0 right-0 flex flex-col items-center justify-start pt-0.5 border-t border-gray-200"
+                  style={{ top, height }}
+                >
+                  <span className="text-[9px] text-gray-500 leading-tight text-center px-0.5 font-medium">
+                    {period.label}
+                  </span>
+                  <span className="text-[8px] text-gray-300 leading-tight">{period.start}</span>
+                </div>
+              )
+            })}
+          </div>
         </div>
 
-        {/* 요일 컬럼 */}
+        {/* 요일 컬럼들 */}
         {DAYS.map((day, dayIdx) => (
-          <div key={day} className="flex-1 min-w-0 border-l border-gray-100">
+          <div key={day} className="flex-1 min-w-0 border-l border-gray-200">
             <div style={{ height: 28 }} className="flex items-center justify-center text-xs font-medium text-gray-500">
               {day}
             </div>
-
             <div className="relative" style={{ height: totalHeight }}>
-              {/* 시간 구분선 */}
-              {periods.map(p => (
+              {/* 교시 구분선 */}
+              {visiblePeriods.map(period => (
                 <div
-                  key={p}
+                  key={period.index}
                   className="absolute left-0 right-0 border-t border-gray-100"
-                  style={{ top: (p - START_PERIOD) * HOUR_HEIGHT }}
+                  style={{ top: (timeToMin(period.start) - dayStartMin) * PX_PER_MIN }}
                 />
               ))}
 
@@ -89,18 +157,24 @@ export default function Timetable() {
               {courses
                 .filter(c => c.day === dayIdx + 1)
                 .map(course => {
-                  const top = (course.start_period - START_PERIOD) * HOUR_HEIGHT
-                  const height = (course.end_period - course.start_period + 1) * HOUR_HEIGHT
+                  const style = getBlockStyle(course)
+                  if (!style) return null
                   return (
                     <div
                       key={course.id}
                       className="absolute px-1 py-1 overflow-hidden"
-                      style={{ top, height, left: 0, right: 0, backgroundColor: course.color || "#AED6F1" }}
+                      style={{
+                        top: style.top,
+                        height: style.height,
+                        left: 0,
+                        right: 0,
+                        backgroundColor: course.color || "#AED6F1",
+                      }}
                     >
                       <p className="text-[10px] font-bold leading-tight text-gray-800 line-clamp-2">
                         {course.subject}
                       </p>
-                      {height >= 60 && course.room && (
+                      {style.height >= 40 && course.room && (
                         <p className="text-[9px] text-gray-600 leading-tight mt-0.5 truncate">
                           {course.room}
                         </p>
