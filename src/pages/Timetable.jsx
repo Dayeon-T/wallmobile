@@ -3,7 +3,7 @@ import { supabase } from "../utils/supabase"
 
 const DAYS = ["월", "화", "수", "목", "금"]
 const START_PERIOD = 1
-const END_PERIOD = 9
+const END_PERIOD = 14
 const HOUR_HEIGHT = 64
 const TIME_COL_WIDTH = 24
 
