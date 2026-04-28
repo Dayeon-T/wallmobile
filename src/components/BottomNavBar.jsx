@@ -20,20 +20,19 @@ export default function BottomNavBar() {
   )
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white">
-      {/* 슬라이딩 바 */}
-      <span
-        className="absolute top-0 bg-black"
-        style={{
-          height: "4px",
-          width: "12%",
-          left: `${activeIndex * 20 + 4}%`,
-          borderRadius: "9999px",
-          transition: "left 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-        }}
-      />
-
-      <div className="flex">
+    <div className="fixed bottom-0 left-0 right-0 bg-white px-4">
+      <div className="relative flex">
+        {/* 슬라이딩 바 */}
+        <span
+          className="absolute top-0 bg-black"
+          style={{
+            height: "4px",
+            width: "12%",
+            left: `${activeIndex * 20 + 4}%`,
+            borderRadius: "9999px",
+            transition: "left 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          }}
+        />
         {navItems.map(({ to, icon, label }) => (
           <NavLink
             key={to}
